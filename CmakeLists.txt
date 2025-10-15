@@ -1,0 +1,28 @@
+cmake_minimum_required(VERSION 3.16)
+project(proj LANGUAGES C CXX)
+
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+
+# Prefer static libs to avoid DLL hassle by default
+option(BUILD_SHARED_LIBS "Build libraries shared instead of static" OFF)
+
+add_subdirectory(glfw)
+add_subdirectory(glad)
+
+
+# Create executable
+add_executable(${PROJECT_NAME}
+src/main.cpp
+)
+
+
+# Link libraries
+# The targets provided by the downloaded projects are:
+# - glfw
+# - glad
+# Link to them. GLFW target handles platform link flags (frameworks on macOS, libs on Windows).
+target_link_libraries(${PROJECT_NAME} PRIVATE glfw glad)
