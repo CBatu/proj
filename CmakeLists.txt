@@ -10,7 +10,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Prefer static libs to avoid DLL hassle by default
 option(BUILD_SHARED_LIBS "Build libraries shared instead of static" OFF)
 
-add_subdirectory(glfw)
+add_subdirectory(extern/glfw)
 add_subdirectory(glad)
 
 
