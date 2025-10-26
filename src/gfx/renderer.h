@@ -40,7 +40,7 @@ private:
     glm::mat4 viewProj;
     std::vector<DrawCall> drawCalls;
     std::vector<glm::mat4> modelMatrices;
-    std::map<unsigned int, std::vector<DrawCall>> batches; 
+
     
     std::vector<float> vertexBuffer;
 

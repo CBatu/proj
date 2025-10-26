@@ -42,7 +42,6 @@ bool Renderer::Init() {
 void Renderer::Begin(const glm::mat4& viewProjMatrix) {
     viewProj = viewProjMatrix;
     vertexBuffer.clear();
-    batches.clear();
 }
 
 void Renderer::End() {
