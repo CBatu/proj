@@ -6,17 +6,25 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+include_directories(src)
 
 # Prefer static libs to avoid DLL hassle by default
 option(BUILD_SHARED_LIBS "Build libraries shared instead of static" OFF)
 
+file(COPY shaders DESTINATION ${CMAKE_BINARY_DIR})
+
 add_subdirectory(extern/glfw)
+add_subdirectory(glm)
 add_subdirectory(glad)
 
 
 # Create executable
 add_executable(${PROJECT_NAME}
 src/main.cpp
+src/core/engine.cpp
+src/gfx/shader.cpp
+src/gfx/renderer.cpp
+src/game/game.cpp
 )
 
 
@@ -24,5 +32,6 @@ src/main.cpp
 # The targets provided by the downloaded projects are:
 # - glfw
 # - glad
+# - glm
 # Link to them. GLFW target handles platform link flags (frameworks on macOS, libs on Windows).
-target_link_libraries(${PROJECT_NAME} PRIVATE glfw glad)
+target_link_libraries(${PROJECT_NAME} PRIVATE glfw glad glm::glm)
