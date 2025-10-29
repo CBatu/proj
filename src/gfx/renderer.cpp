@@ -1,113 +1,145 @@
 #include "gfx/renderer.h"
 #include <iostream>
 
-constexpr unsigned int SHAPE_TRIANGLE = 0; // (ShapeType::Triangle'ın int karşılığı)
-constexpr unsigned int SHAPE_QUAD = 1;
-
-bool Renderer::Init() {
+bool Renderer3D::Init() {
     if (!shader.Load("shaders/basic.vert", "shaders/basic.frag")) {
-            std::cerr << "Shader load failed!\n";
-            return false;
-        }
-
-        // VAO & VBO setup
-        glGenVertexArrays(1, &VAO);
-        glGenBuffers(1, &VBO);
-        glGenBuffers(1, &instanceVBO);
-
-        glBindVertexArray(VAO);
-
-        // Vertex buffer
-        glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        // boş buffer, per-frame güncellenecek
-        glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
-
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 7*sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
-
-        glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 7*sizeof(float), (void*)(3*sizeof(float)));
-        glEnableVertexAttribArray(1);
-
-        // Instance buffer
-        glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-        for (int i = 0; i < 4; i++) {
-            glVertexAttribPointer(2 + i, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(sizeof(float)*i*4));
-            glEnableVertexAttribArray(2 + i);
-            glVertexAttribDivisor(2 + i, 1); // 1 matris per instance
-        }
-
-        return true;
+        std::cerr << "Shader load failed!\n";
+        return false;
+    }
+    SetupCube();
+    return true;
 }
 
-void Renderer::Begin(const glm::mat4& viewProjMatrix) {
-    viewProj = viewProjMatrix;
-    vertexBuffer.clear();
-}
+void Renderer3D::SetupCube() {
+    float cubeVertices[] = {
+        -0.5f, -0.5f, -0.5f,  
+         0.5f, -0.5f, -0.5f,  
+         0.5f,  0.5f, -0.5f,  
+         0.5f,  0.5f, -0.5f,  
+        -0.5f,  0.5f, -0.5f,  
+        -0.5f, -0.5f, -0.5f,  
 
-void Renderer::End() {
+        -0.5f, -0.5f,  0.5f,  
+         0.5f, -0.5f,  0.5f,  
+         0.5f,  0.5f,  0.5f,  
+         0.5f,  0.5f,  0.5f,  
+        -0.5f,  0.5f,  0.5f,  
+        -0.5f, -0.5f,  0.5f,  
 
-if (vertexBuffer.empty() || modelMatrices.empty()) return;
+        -0.5f,  0.5f,  0.5f,  
+        -0.5f,  0.5f, -0.5f,  
+        -0.5f, -0.5f, -0.5f,  
+        -0.5f, -0.5f, -0.5f,  
+        -0.5f, -0.5f,  0.5f,  
+        -0.5f,  0.5f,  0.5f,  
 
-        shader.Use();
+         0.5f,  0.5f,  0.5f,  
+         0.5f,  0.5f, -0.5f,  
+         0.5f, -0.5f, -0.5f,  
+         0.5f, -0.5f, -0.5f,  
+         0.5f, -0.5f,  0.5f,  
+         0.5f,  0.5f,  0.5f,  
 
-        // Vertex buffer
-        glBindVertexArray(VAO);
-        glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferData(GL_ARRAY_BUFFER, vertexBuffer.size() * sizeof(float), vertexBuffer.data(), GL_DYNAMIC_DRAW);
+        -0.5f, -0.5f, -0.5f,  
+         0.5f, -0.5f, -0.5f,  
+         0.5f, -0.5f,  0.5f,  
+         0.5f, -0.5f,  0.5f,  
+        -0.5f, -0.5f,  0.5f,  
+        -0.5f, -0.5f, -0.5f,  
 
-        // Instance buffer
-        glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-        glBufferData(GL_ARRAY_BUFFER, modelMatrices.size() * sizeof(glm::mat4), modelMatrices.data(), GL_DYNAMIC_DRAW);
-
-        glUniformMatrix4fv(glGetUniformLocation(shader.ID, "uViewProj"), 1, GL_FALSE, &viewProj[0][0]);
-
-        int vertexCount = vertexBuffer.size() / 7;
-        glDrawArraysInstanced(GL_TRIANGLES, 0, vertexCount, modelMatrices.size());
-
-}
-
-
-void Renderer::DrawTriangle(const glm::vec2& a,
-                            const glm::vec2& b,
-                            const glm::vec2& c,
-                            Color color,
-                            const glm::mat4& model)
-{
-    // Local space vertexleri
-    float verts[] = {
-        a.x, a.y, 0.0f, color.r, color.g, color.b, color.a,
-        b.x, b.y, 0.0f, color.r, color.g, color.b, color.a,
-        c.x, c.y, 0.0f, color.r, color.g, color.b, color.a
+        -0.5f,  0.5f, -0.5f,  
+         0.5f,  0.5f, -0.5f,  
+         0.5f,  0.5f,  0.5f,  
+         0.5f,  0.5f,  0.5f,  
+        -0.5f,  0.5f,  0.5f,  
+        -0.5f,  0.5f, -0.5f
     };
 
-    vertexBuffer.insert(vertexBuffer.end(), std::begin(verts), std::end(verts));
-    modelMatrices.push_back(model);
+glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &instanceVBO);
+    glGenBuffers(1, &colorVBO);
+
+    glBindVertexArray(VAO);
+
+    // Vertex pozisyonları
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), cubeVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+
+    // Instance matrisleri (4 vec4 attribute)
+    glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+    for (int i = 0; i < 4; i++) {
+        glEnableVertexAttribArray(1 + i);
+        glVertexAttribPointer(1 + i, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(sizeof(glm::vec4) * i));
+        glVertexAttribDivisor(1 + i, 1);
+    }
+
+    // Instance renkleri
+    glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+    glEnableVertexAttribArray(5);
+    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), (void*)0);
+    glVertexAttribDivisor(5, 1);
+
+    glBindVertexArray(0);
+}
+
+void Renderer3D::Begin(const glm::mat4& viewProjMatrix) {
+    viewProj = viewProjMatrix;
+    drawCalls.clear();
+glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+
+
+
+    
+}
+
+void Renderer3D::DrawCube(const glm::mat4& model, Color color) {
+    drawCalls.push_back({ model, color });
+}
+
+void Renderer3D::FlushBatch() {
+    if (drawCalls.empty()) return;
+
+    shader.Use();
+    glBindVertexArray(VAO);
+
+    std::vector<glm::mat4> matrices(drawCalls.size());
+    std::vector<glm::vec4> colors(drawCalls.size());
+
+    for (size_t i = 0; i < drawCalls.size(); i++) {
+        matrices[i] = drawCalls[i].model;
+        colors[i] = glm::vec4(drawCalls[i].color.r, drawCalls[i].color.g, drawCalls[i].color.b, drawCalls[i].color.a);
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+    glBufferData(GL_ARRAY_BUFFER, matrices.size() * sizeof(glm::mat4), matrices.data(), GL_DYNAMIC_DRAW);
+
+    glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+    glBufferData(GL_ARRAY_BUFFER, colors.size() * sizeof(glm::vec4), colors.data(), GL_DYNAMIC_DRAW);
+
+    shader.SetMat4("uViewProj", viewProj);
+
+    // Tek draw call
+    glDrawArraysInstanced(GL_TRIANGLES, 0, 36, (GLsizei)drawCalls.size());
+
+    glBindVertexArray(0);
 }
 
 
-void Renderer::DrawQuad(const glm::vec2& p1, const glm::vec2& p2,
-                        const glm::vec2& p3, const glm::vec2& p4,
-                        Color color,
-                        const glm::mat4& model)
-{
-float verts[] = {
-            p1.x, p1.y, 0.0f, color.r, color.g, color.b, color.a,
-            p2.x, p2.y, 0.0f, color.r, color.g, color.b, color.a,
-            p3.x, p3.y, 0.0f, color.r, color.g, color.b, color.a,
-
-            p1.x, p1.y, 0.0f, color.r, color.g, color.b, color.a,
-            p3.x, p3.y, 0.0f, color.r, color.g, color.b, color.a,
-            p4.x, p4.y, 0.0f, color.r, color.g, color.b, color.a
-        };
-
-        vertexBuffer.insert(vertexBuffer.end(), std::begin(verts), std::end(verts));
-        modelMatrices.push_back(model);
+void Renderer3D::End() {
+    FlushBatch();
 }
 
-
-void Renderer::Destroy() {
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &instanceVBO);
+void Renderer3D::Destroy() {
     glDeleteBuffers(1, &VBO);
+    glDeleteBuffers(1, &instanceVBO);
+    glDeleteBuffers(1, &colorVBO);
+    glDeleteVertexArrays(1, &VAO);
     shader.Destroy();
 }

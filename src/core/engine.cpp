@@ -78,20 +78,19 @@ void Engine::Run() {
     auto lastTime = std::chrono::high_resolution_clock::now();
 
     while (!glfwWindowShouldClose(window) && running) {
+        // Process window events first so input state (keyboard/mouse) is fresh
+        glfwPollEvents();
+
         auto now = std::chrono::high_resolution_clock::now();
         float dt = std::chrono::duration<float>(now - lastTime).count();
         lastTime = now;
-
         ProcessInput();
         game->OnUpdate(dt);
 
-        glClearColor(0.1f, 0.15f, 0.2f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
 
         game->OnRender();
 
         glfwSwapBuffers(window);
-        glfwPollEvents();
     }
 
     game->OnShutdown();
@@ -108,8 +107,7 @@ void Engine::Update() {
 }
 
 void Engine::Render() {
-    glClearColor(0.1f, 0.15f, 0.2f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    // rendering
 }
 
 void Engine::Shutdown() {

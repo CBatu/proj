@@ -2,149 +2,139 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <vector>
-#include "gfx/renderer.h"
 
-class Node2D {
+class Node3D {
 public:
-    glm::vec2 position {0.0f, 0.0f};
-    glm::vec2 scale {1.0f, 1.0f};
-    float rotation = 0.0f;
-    glm::vec2 pivot {0.5f, 0.5f};
-    bool visible = true;
+    glm::vec3 position {0.0f};
+    glm::vec3 rotation {0.0f}; // Euler angles (radians)
+    glm::vec3 scale {1.0f};
 
-    Node2D* parent = nullptr;
-    std::vector<Node2D*> children;
+    Node3D* parent = nullptr;
+    std::vector<Node3D*> children;
 
-    virtual ~Node2D() = default;
+    virtual ~Node3D() {}
 
-    // Transform hesaplanırken pivot'u merkeze al
-    glm::mat4 GetTransform() const {
-        glm::mat4 transform(1.0f);
-
-        // 1. Pivotu merkeze al (örnek: 0.5f,0.5f -> ortası)
-        transform = glm::translate(transform, glm::vec3(position, 0.0f));
-
-        // Pivot ofsetini hesapla (local space'te)
-        glm::vec3 pivotOffset = glm::vec3(-pivot, 0.0f);
-
-        // 2. Pivot etrafında dönmesi için translate → rotate → scale → translate sırası
-        transform = glm::translate(transform, -pivotOffset);
-        transform = glm::rotate(transform, rotation, glm::vec3(0, 0, 1));
-        transform = glm::scale(transform, glm::vec3(scale, 1.0f));
-        transform = glm::translate(transform, pivotOffset);
-
-        if (parent)
-            return parent->GetTransform() * transform;
-        return transform;
-    }
-
-    virtual void Update(float dt) {
-        for (auto* child : children)
-            child->Update(dt);
-    }
-
-    virtual void Draw(Renderer& renderer) {
-        for (auto* child : children)
-            child->Draw(renderer);
-    }
-
-    void AddChild(Node2D* child) {
+    void AddChild(Node3D* child) {
         child->parent = this;
         children.push_back(child);
     }
-};
 
-enum class ShapeType {
-    Triangle,
-    Quad,
-    Circle
-};
+    glm::mat4 GetTransform() const {
+        glm::mat4 model(1.0f);
+        model = glm::translate(model, position);
+        model = glm::rotate(model, rotation.x, glm::vec3(1,0,0));
+        model = glm::rotate(model, rotation.y, glm::vec3(0,1,0));
+        model = glm::rotate(model, rotation.z, glm::vec3(0,0,1));
+        model = glm::scale(model, scale);
+        return model;
+    }
 
-class Shape2D : public Node2D {
-public:
-    ShapeType type = ShapeType::Quad;
-    glm::vec2 size {100.0f, 100.0f};
-    Color color {1.0f, 1.0f, 1.0f, 1.0f};
+    glm::mat4 GetGlobalTransform() const {
+        if (parent)
+            return parent->GetGlobalTransform() * GetTransform();
+        return GetTransform();
+    }
 
-    void Draw(Renderer& renderer) override {
-        if (!visible) return;
+    virtual void Update(float dt) {
+        for (auto c : children)
+            c->Update(dt);
+    }
 
-        glm::mat4 model = GetTransform();
-        glm::vec2 half = size * 0.5f;
-
-        switch (type) {
-            case ShapeType::Triangle: {
-    glm::vec2 half = size * 0.5f;
-
-    // Üçgenin tepe noktalarını merkez etrafında tanımla
-    glm::vec2 a = glm::vec2(0.0f,  half.y);     // üst
-    glm::vec2 b = glm::vec2(-half.x, -half.y);  // sol alt
-    glm::vec2 c = glm::vec2( half.x, -half.y);  // sağ alt
-
-    // Geometrik merkezini bul
-    glm::vec2 centroid = (a + b + c) / 3.0f;
-
-    // Vertexleri merkeze göre kaydır
-    a -= centroid;
-    b -= centroid;
-    c -= centroid;
-
-    renderer.DrawTriangle(a, b, c, color, GetTransform());
-    break;
-}
-
-
-
-            case ShapeType::Quad: {
-                glm::vec2 p1 = {-half.x, -half.y};
-                glm::vec2 p2 = { half.x, -half.y};
-                glm::vec2 p3 = { half.x,  half.y};
-                glm::vec2 p4 = {-half.x,  half.y};
-                renderer.DrawQuad(p1, p2, p3, p4, color, model);
-                break;
-            }
-            default:
-                break;
-        }
-
-        Node2D::Draw(renderer);
+    virtual void Render(class Renderer3D& renderer, const glm::mat4& viewProj) {
+        for (auto c : children)
+            c->Render(renderer, viewProj);
     }
 };
 
-class Camera2D : public Node2D {
+class MeshNode3D : public Node3D {
 public:
-    float width, height;
-    float zoom = 1.0f;
+    Color color {1,1,1,1};
 
-    Camera2D(float w, float h) : width(w), height(h) {}
+    void Render(Renderer3D& renderer, const glm::mat4& viewProj) override {
+        renderer.DrawCube(GetGlobalTransform(), color);
+        Node3D::Render(renderer, viewProj);
+    }
+};
+
+class CameraNode3D : public Node3D {
+public:
+    float fov = 60.0f;
+    float aspect = 16.0f / 9.0f;
+    float nearClip = 0.1f;
+    float farClip = 100.0f;
+
+    glm::vec3 forward = {0.0f, 0.0f, -1.0f};
+    glm::vec3 up = {0.0f, 1.0f, 0.0f};
+
+    void SetPerspective(float fovDeg, float aspectRatio, float nearZ, float farZ) {
+        fov = fovDeg;
+        aspect = aspectRatio;
+        nearClip = nearZ;
+        farClip = farZ;
+    }
+
+    glm::mat4 GetView() const {
+        glm::mat4 transform = GetGlobalTransform();
+        glm::vec3 camPos = glm::vec3(transform[3]);
+        glm::vec3 camForward = glm::normalize(glm::vec3(transform * glm::vec4(forward, 0.0f)));
+        glm::vec3 camUp = glm::normalize(glm::vec3(transform * glm::vec4(up, 0.0f)));
+        return glm::lookAt(camPos, camPos + camForward, camUp);
+    }
+
+    glm::mat4 GetProjection() const {
+        return glm::perspective(glm::radians(fov), aspect, nearClip, farClip);
+    }
 
     glm::mat4 GetViewProj() const {
-        float halfW = (width * 0.5f) / zoom;
-        float halfH = (height * 0.5f) / zoom;
-
-        glm::mat4 projection = glm::ortho(-halfW, halfW, -halfH, halfH, -1.0f, 1.0f);
-        glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(-position, 0.0f));
-        return projection * view;
+        return GetProjection() * GetView();
     }
+
+    // =====================
+    // LookAt ekledik
+    // =====================
+    void LookAt(const glm::vec3& target) {
+    forward = glm::normalize(target - position);
+    glm::vec3 worldUp = glm::vec3(0,1,0);
+    glm::vec3 right = glm::normalize(glm::cross(forward, worldUp));
+    up = glm::normalize(glm::cross(right, forward));
+}
+
+    // Return direction vectors transformed by the node's rotation
+    glm::vec3 GetForward() const {
+        glm::mat4 transform = GetGlobalTransform();
+        return glm::normalize(glm::vec3(transform * glm::vec4(forward, 0.0f)));
+    }
+
+    glm::vec3 GetUp() const {
+        glm::mat4 transform = GetGlobalTransform();
+        return glm::normalize(glm::vec3(transform * glm::vec4(up, 0.0f)));
+    }
+
+    glm::vec3 GetRight() const {
+        return glm::normalize(glm::cross(GetForward(), GetUp()));
+    }
+
 };
-class Scene {
+
+class LightNode3D : public Node3D {
 public:
-    std::vector<Node2D*> nodes;
-    Camera2D* camera = nullptr;
+    glm::vec3 color = {1.0f, 1.0f, 1.0f};
+    float intensity = 1.0f;
 
-    void AddNode(Node2D* node) {
-        nodes.push_back(node);
+    // Tipler: directional, point, spot
+    enum class Type { Point, Directional, Spot } type = Type::Point;
+
+    LightNode3D() = default;
+
+    glm::vec3 GetWorldPosition() const {
+        glm::mat4 transform = GetGlobalTransform();
+        return glm::vec3(transform[3]);
     }
 
-    void Update(float dt) {
-        for (auto* n : nodes) n->Update(dt);
-    }
-
-    void Render(Renderer& renderer) {
-        if (!camera) return;
-        renderer.Begin(camera->GetViewProj());
-        for (auto* n : nodes)
-            n->Draw(renderer);
-        renderer.End();
+    glm::vec3 GetDirection() const {
+        // Directional veya spotlight için
+        glm::mat4 transform = GetGlobalTransform();
+        glm::vec3 forward = {0,0,-1};
+        return glm::normalize(glm::vec3(transform * glm::vec4(forward,0.0f)));
     }
 };

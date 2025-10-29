@@ -3,62 +3,96 @@
 #include <iostream>
 #include "Node/Node2D.h"
 
-Scene scene;
-Renderer renderer;
-Camera2D camera(1280, 720);
+Renderer3D renderer;
+Node3D* root = nullptr;
+glm::mat4 viewProj;
+CameraNode3D* camera = nullptr;
 
-Shape2D tri, rect;
+float cameraSpeed = 5.0f;      // Birim/saniye
+float mouseSensitivity = 0.002f;
+double lastMouseX = 640.0, lastMouseY = 360.0;
+bool firstMouse = true;
 
 void Game::OnInit() {
     renderer.Init();
+    glfwSetInputMode(glfwGetCurrentContext(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-    tri.type = ShapeType::Triangle;
-    tri.position = {100, 100};
-    tri.size = {150, 150};
-    tri.color = {1, 0, 0, 1};
-    tri.rotation = glm::radians(30.0f);
-    tri.scale = {1.5f, 1.0f};
+    // Root node
+    root = new Node3D();
 
-    rect.type = ShapeType::Quad;
-    rect.position = {400, 300};
-    rect.size = {200, 150};
-    rect.color = {0, 1, 0, 1};
-    rect.rotation = glm::radians(90.0f);
+    auto light = new LightNode3D();
+    light->position = {2.0f, 4.0f, 2.0f};
+    light->color = {1.0f, 1.0f, 1.0f};
+    root->AddChild(light);
 
-    scene.camera = &camera;
 
-    scene.AddNode(&tri);
-    scene.AddNode(&rect);
+    // === Kamera Node ===
+    camera = new CameraNode3D();
+    camera->position = { 0.0f, 1.0f, 4.0f };
+    camera->SetPerspective(60.0f, 1280.0f/720.0f, 0.1f, 100.0f);
+    root->AddChild(camera);
+
+    // === Sahne ===
+    auto cube1 = new MeshNode3D();
+    cube1->position = { -1.0f, 0.0f, 0.0f };
+    cube1->color = { 1, 0, 0, 1 };
+    root->AddChild(cube1);
+
+    auto cube2 = new MeshNode3D();
+    cube2->position = { 1.0f, 0.0f, 0.0f };
+    cube2->color = { 0, 0, 1, 1 };
+    root->AddChild(cube2);
 }
 
 void Game::OnRender() {
-    scene.Render(renderer);
+
+    glm::mat4 viewProj = camera->GetViewProj();
+
+    renderer.Begin(viewProj);
+    root->Render(renderer, viewProj);
+    renderer.End();
 }
+void Game::OnUpdate(float dt) {
+    // Fare hareketi
+    double mouseX, mouseY;
+    glfwGetCursorPos(glfwGetCurrentContext(), &mouseX, &mouseY);
+
+    if (firstMouse) {
+        lastMouseX = mouseX;
+        lastMouseY = mouseY;
+        firstMouse = false;
+    }
+
+    float offsetX = float(lastMouseX-mouseX) * mouseSensitivity;
+    float offsetY = float(lastMouseY - mouseY) * mouseSensitivity;
+    lastMouseX = mouseX;
+    lastMouseY = mouseY;
+
+    // Euler açılarını güncelle
+    camera->rotation.y += offsetX; // Yaw
+    camera->rotation.x += offsetY; // Pitch
+
+    camera->rotation.x = glm::clamp(camera->rotation.x, glm::radians(-89.0f), glm::radians(89.0f));
+
+    // Kamera yön vektörleri: kamera node'unun dönüşünden türet (tüm dönüş mantığıyla eşleşir)
+    glm::vec3 front = camera->GetForward();
+    glm::vec3 right = camera->GetRight();
+    glm::vec3 up = camera->GetUp();
+
+    // Hareket
+    if (glfwGetKey(glfwGetCurrentContext(), GLFW_KEY_W) == GLFW_PRESS) camera->position += front * cameraSpeed * dt;
+    if (glfwGetKey(glfwGetCurrentContext(), GLFW_KEY_S) == GLFW_PRESS) camera->position -= front * cameraSpeed * dt;
+    if (glfwGetKey(glfwGetCurrentContext(), GLFW_KEY_A) == GLFW_PRESS) camera->position -= right * cameraSpeed * dt;
+    if (glfwGetKey(glfwGetCurrentContext(), GLFW_KEY_D) == GLFW_PRESS) camera->position += right * cameraSpeed * dt;
+    if (glfwGetKey(glfwGetCurrentContext(), GLFW_KEY_SPACE) == GLFW_PRESS) camera->position += up * cameraSpeed * dt;
+    if (glfwGetKey(glfwGetCurrentContext(), GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) camera->position -= up * cameraSpeed * dt;
+
+    root->Update(dt);
+}
+
+
 
 void Game::OnShutdown() {
     renderer.Destroy();
-}
-
-void Game::OnUpdate(float dt) {
-    if (glfwGetKey(glfwGetCurrentContext(), GLFW_KEY_W) == GLFW_PRESS)
-    {
-        camera.position.y += 500.0f * dt;
-    }else if (glfwGetKey(glfwGetCurrentContext(), GLFW_KEY_S) == GLFW_PRESS)
-    {
-        camera.position.y -= 500.0f * dt;
-    }
-
-    else if (glfwGetKey(glfwGetCurrentContext(), GLFW_KEY_A) == GLFW_PRESS)
-    {
-        camera.position.x -= 500.0f * dt;
-    }else if (glfwGetKey(glfwGetCurrentContext(), GLFW_KEY_D) == GLFW_PRESS)
-    {
-        camera.position.x += 500.0f * dt;
-    }if (glfwGetKey(glfwGetCurrentContext(), GLFW_KEY_Q) == GLFW_PRESS)
-    {
-        camera.zoom += 5.0f * dt;
-    }else if (glfwGetKey(glfwGetCurrentContext(), GLFW_KEY_E) == GLFW_PRESS)
-    {
-        camera.zoom -= 5.0f * dt;
-    }
+    delete root;
 }
