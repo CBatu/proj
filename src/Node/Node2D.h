@@ -1,4 +1,5 @@
 #pragma once
+#include "gfx/renderer.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <vector>
@@ -118,7 +119,7 @@ public:
 
 class LightNode3D : public Node3D {
 public:
-    glm::vec3 color = {1.0f, 1.0f, 1.0f};
+    Color color = {1.0f, 1.0f, 1.0f};
     float intensity = 1.0f;
 
     // Tipler: directional, point, spot
@@ -136,5 +137,18 @@ public:
         glm::mat4 transform = GetGlobalTransform();
         glm::vec3 forward = {0,0,-1};
         return glm::normalize(glm::vec3(transform * glm::vec4(forward,0.0f)));
+    }
+
+    void Render(Renderer3D& renderer, const glm::mat4& viewProj) override {
+
+        renderer.AddLight(LightData{
+            type == Type::Directional ? 0 : 1,
+            GetDirection(),
+            GetWorldPosition(),
+            color,
+            intensity,
+            0.0f // radius, gerekirse eklenebilir
+        });
+        Node3D::Render(renderer, viewProj);
     }
 };

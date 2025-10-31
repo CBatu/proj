@@ -1,8 +1,9 @@
 #pragma once
-#include "gfx/renderer.h"
+
+
 #include "core/application.h"
 
-class Game : public IApplication {
+class Editor : public IApplication {
 public:
     void OnInit() override;
     void OnUpdate(float dt) override;

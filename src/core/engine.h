@@ -6,7 +6,7 @@
 
 class Engine {
 public:
-    Engine(int width, int height, const std::string& title);
+    Engine(int width, int height, const std::string& title, IApplication* app);
     ~Engine();
 
     void Run();
@@ -16,7 +16,7 @@ private:
     int width, height;
     std::string title;
     bool running = true;
-    Game* game = nullptr;
+    IApplication* game = nullptr;
 
     bool Init();
     void ProcessInput();

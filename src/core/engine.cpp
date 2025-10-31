@@ -2,8 +2,8 @@
 #include "core/engine.h"
 #include <iostream>
 
-Engine::Engine(int width, int height, const std::string& title)
-    : width(width), height(height), title(title) {
+Engine::Engine(int width, int height, const std::string& title , IApplication* app)
+    : width(width), height(height), title(title), game(app) {
     if (!Init()) {
         std::cerr << "Engine init failed!\n";
         running = false;
@@ -72,7 +72,10 @@ bool Engine::Init() {
 }
 
 void Engine::Run() {
-    game = new Game();
+    if (!game) {
+        std::cerr << "No application attached!\n";
+        return;
+    }
     game->OnInit();
 
     auto lastTime = std::chrono::high_resolution_clock::now();

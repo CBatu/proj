@@ -16,7 +16,7 @@ file(COPY shaders DESTINATION ${CMAKE_BINARY_DIR})
 add_subdirectory(extern/glfw)
 add_subdirectory(glm)
 add_subdirectory(glad)
-
+add_subdirectory(imgui)
 
 # Create executable
 add_executable(${PROJECT_NAME}
@@ -25,6 +25,8 @@ src/core/engine.cpp
 src/gfx/shader.cpp
 src/gfx/renderer.cpp
 src/game/game.cpp
+src/Node/Node3D.cpp 
+src/editor/editor.cpp
 )
 
 
@@ -34,4 +36,4 @@ src/game/game.cpp
 # - glad
 # - glm
 # Link to them. GLFW target handles platform link flags (frameworks on macOS, libs on Windows).
-target_link_libraries(${PROJECT_NAME} PRIVATE glfw glad glm::glm)
+target_link_libraries(${PROJECT_NAME} PRIVATE glfw glad glm::glm imgui)

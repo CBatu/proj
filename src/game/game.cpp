@@ -22,6 +22,7 @@ void Game::OnInit() {
 
     auto light = new LightNode3D();
     light->position = {2.0f, 4.0f, 2.0f};
+    light->type = LightNode3D::Type::Directional;
     light->color = {1.0f, 1.0f, 1.0f};
     root->AddChild(light);
 
@@ -48,8 +49,9 @@ void Game::OnRender() {
 
     glm::mat4 viewProj = camera->GetViewProj();
 
-    renderer.Begin(viewProj);
+    renderer.Begin(viewProj, camera->GetGlobalTransform());
     root->Render(renderer, viewProj);
+    renderer.UploadLights();
     renderer.End();
 }
 void Game::OnUpdate(float dt) {

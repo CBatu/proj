@@ -14,13 +14,26 @@ struct DrawCall {
     Color color;
 };
 
+struct LightData {
+    int type; // 0 = directional, 1 = point
+    glm::vec3 direction;
+    glm::vec3 position;
+    Color color;
+    float intensity;
+    float radius;
+};
+
 class Renderer3D {
 public:
     bool Init();
-    void Begin(const glm::mat4& viewProjMatrix);
+    void Begin(const glm::mat4& viewProjMatrix, const glm::mat4& cameraPos);
     void DrawCube(const glm::mat4& model, Color color);
     void End();
     void Destroy();
+    void AddLight(const LightData& light) {
+        lights.push_back(light);
+    }
+    void UploadLights();
 
 private:
     void SetupCube();
@@ -30,4 +43,5 @@ private:
     unsigned int VAO = 0, VBO = 0, instanceVBO = 0, colorVBO = 0;
     glm::mat4 viewProj;
     std::vector<DrawCall> drawCalls;
+    std::vector<LightData> lights;
 };
