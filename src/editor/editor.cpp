@@ -4,6 +4,8 @@
 #include <GLFW/glfw3.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
+#include <ImGuizmo.h>
+#include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 
 // === GLOBALLER ===
@@ -11,6 +13,9 @@ static Renderer3D renderer;
 static CameraNode3D* editorCamera = nullptr;
 static Node3D* root = nullptr;
 static Node3D* selectedNode = nullptr;
+
+// Framebuffer nesnesi
+static GLuint fbo = 0, colorTex = 0, depthRbo = 0;
 
 // === Yardımcı fonksiyon: Node listesi ===
 static void DrawNodeHierarchy(Node3D* node, int& counter) {
@@ -28,6 +33,35 @@ static void DrawNodeHierarchy(Node3D* node, int& counter) {
             ImGui::Unindent();
         }
     }
+}
+
+// === Framebuffer oluştur ===
+static void CreateFramebuffer(int width, int height) {
+    if (fbo) {
+        glDeleteFramebuffers(1, &fbo);
+        glDeleteTextures(1, &colorTex);
+        glDeleteRenderbuffers(1, &depthRbo);
+    }
+
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+    glGenTextures(1, &colorTex);
+    glBindTexture(GL_TEXTURE_2D, colorTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTex, 0);
+
+    glGenRenderbuffers(1, &depthRbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, depthRbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, depthRbo);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cerr << "Framebuffer incomplete!\n";
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 // ===============================
@@ -50,8 +84,10 @@ void Editor::OnInit() {
     // Kamera
     editorCamera = new CameraNode3D();
     editorCamera->position = {0.0f, 0.0f, 5.0f};
-    editorCamera->LookAt({0.0f, 0.0f, 0.0f});
+    //editorCamera->LookAt({0.0f, 0.0f, 0.0f});
 
+    // Başlangıç framebuffer
+    CreateFramebuffer(1280, 720);
 }
 
 void Editor::OnUpdate(float dt) {
@@ -77,16 +113,7 @@ void Editor::OnRender() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    // Kullanılacak ölçüler (ImGui ve framebuffer)
-    ImVec2 imguiDisplaySize = ImGui::GetIO().DisplaySize; // ImGui koord (genelde pencere boyutu)
-    GLFWwindow* window = glfwGetCurrentContext();
-    int fb_w = 0, fb_h = 0;
-    glfwGetFramebufferSize(window, &fb_w, &fb_h);          // framebuffer boyutu (pixel)
-    // scale: ImGui koordinat -> framebuffer pixel
-    float scaleX = imguiDisplaySize.x > 0.0f ? (float)fb_w / imguiDisplaySize.x : 1.0f;
-    float scaleY = imguiDisplaySize.y > 0.0f ? (float)fb_h / imguiDisplaySize.y : 1.0f;
-
-    ImVec2 displaySize = imguiDisplaySize;
+    ImVec2 displaySize = ImGui::GetIO().DisplaySize;
 
     // === Sol Panel ===
     const float leftW = 220.0f;
@@ -153,56 +180,72 @@ void Editor::OnRender() {
 
     ImGui::End();
 
-    // === Viewport window (sabit layout, padding 0, no title) ===
-    float viewportX = leftW;
-    float viewportW = displaySize.x - (leftW + rightW);
-    float viewportY = 0;
-    float viewportH = displaySize.y;
+    // === Viewport ===
+    ImGui::SetNextWindowPos(ImVec2(leftW, 0));
+    ImGui::SetNextWindowSize(ImVec2(displaySize.x - (leftW + rightW), displaySize.y));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
 
-    ImGui::SetNextWindowPos(ImVec2(viewportX, viewportY));
-    ImGui::SetNextWindowSize(ImVec2(viewportW, viewportH));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0,0));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0)); // Şeffaf arkaplan
-    ImGui::Begin("Viewport", nullptr,
-                 ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar);
+    ImVec2 viewportSize = ImGui::GetContentRegionAvail();
 
-    // Önemli: Viewport'un ImGui pencere pozisyonunu ve boyutunu Begin()'den sonra al
-    ImVec2 vp_pos = ImGui::GetWindowPos();    // pencere sol-üst köşesi (ImGui koordinat, üstten başlayarak)
-    ImVec2 vp_size = ImGui::GetWindowSize();  // pencere boyutu (ImGui koordinat)
+    // Framebuffer boyutu değiştiyse yeniden oluştur
+    static int fbw = 0, fbh = 0;
+    if ((int)viewportSize.x != fbw || (int)viewportSize.y != fbh) {
+        fbw = std::max(1, (int)viewportSize.x);
+        fbh = std::max(1, (int)viewportSize.y);
+        CreateFramebuffer(fbw, fbh);
+    }
 
-    // Convert ImGui coords -> framebuffer pixels
-    int gl_x = (int)std::round(vp_pos.x * scaleX);
-    int gl_y = (int)std::round((displaySize.y - (vp_pos.y + vp_size.y)) * scaleY); // OpenGL alt-origin
-    int gl_w = (int)std::round(vp_size.x * scaleX);
-    int gl_h = (int)std::round(vp_size.y * scaleY);
-
-    // Güvenlik: boyutları pozitif yap
-    if (gl_w <= 0) gl_w = 1;
-    if (gl_h <= 0) gl_h = 1;
-
-    // Sadece viewport alanına çiz (scissor + viewport)
-    glEnable(GL_SCISSOR_TEST);
-    glScissor(gl_x, gl_y, gl_w, gl_h);
-    glViewport(gl_x, gl_y, gl_w, gl_h);
-
-    // Temizle (sadece viewport içinde)
+    // Framebuffer'a render et
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glViewport(0, 0, fbw, fbh);
+    glEnable(GL_DEPTH_TEST);
     glClearColor(0.15f, 0.15f, 0.18f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // Render sahne
     renderer.Begin(editorCamera->GetViewProj(), editorCamera->GetGlobalTransform());
     root->Render(renderer, editorCamera->GetViewProj());
     renderer.UploadLights();
     renderer.End();
 
-    // disable scissor
-    glDisable(GL_SCISSOR_TEST);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    ImGui::PopStyleVar(); // WindowPadding
-    ImGui::PopStyleColor();
+    // Framebuffer içeriğini göster
+    ImGui::Image((ImTextureID)(intptr_t)colorTex, viewportSize, ImVec2(0,1), ImVec2(1,0));
 
-    ImGui::End();         // Viewport
+    // === Gizmo ===
+    if (selectedNode && selectedNode != root) {
+        ImGuizmo::SetOrthographic(false);
+        ImGuizmo::SetDrawlist();
+        ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y,
+                          ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
+
+        glm::mat4 view = editorCamera->GetView();
+        glm::mat4 proj = editorCamera->GetProjection();
+        glm::mat4 model = selectedNode->GetGlobalTransform();
+
+        static ImGuizmo::OPERATION operation = ImGuizmo::TRANSLATE;
+        if (ImGui::IsKeyPressed(ImGuiKey_W)) operation = ImGuizmo::TRANSLATE;
+        if (ImGui::IsKeyPressed(ImGuiKey_E)) operation = ImGuizmo::ROTATE;
+        if (ImGui::IsKeyPressed(ImGuiKey_R)) operation = ImGuizmo::SCALE;
+
+        ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj),
+                             operation, ImGuizmo::WORLD, glm::value_ptr(model));
+
+        if (ImGuizmo::IsUsing()) {
+            glm::vec3 pos, rot, scl;
+            ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(model),
+                                                  glm::value_ptr(pos),
+                                                  glm::value_ptr(rot),
+                                                  glm::value_ptr(scl));
+            selectedNode->position = pos;
+            selectedNode->rotation = glm::radians(rot);
+            selectedNode->scale = scl;
+        }
+    }
+
+    ImGui::End();
+    ImGui::PopStyleVar();
 
     // --- ImGui draw ---
     ImGui::Render();
@@ -217,6 +260,9 @@ void Editor::OnShutdown() {
 
     delete editorCamera;
     delete root;
-
     renderer.Destroy();
+
+    glDeleteFramebuffers(1, &fbo);
+    glDeleteTextures(1, &colorTex);
+    glDeleteRenderbuffers(1, &depthRbo);
 }

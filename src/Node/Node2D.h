@@ -64,8 +64,12 @@ public:
     float nearClip = 0.1f;
     float farClip = 100.0f;
 
-    glm::vec3 forward = {0.0f, 0.0f, -1.0f};
-    glm::vec3 up = {0.0f, 1.0f, 0.0f};
+    // FPS kamera için Euler açıları
+    float yaw = -90.0f;   // sağa sola
+    float pitch = 0.0f;   // yukarı aşağı
+    glm::vec3 front = { 0.0f, 0.0f, -1.0f };
+    glm::vec3 up = { 0.0f, 1.0f, 0.0f };
+    glm::vec3 right = { 1.0f, 0.0f, 0.0f };
 
     void SetPerspective(float fovDeg, float aspectRatio, float nearZ, float farZ) {
         fov = fovDeg;
@@ -74,12 +78,21 @@ public:
         farClip = farZ;
     }
 
+    // === FPS Look yönü hesapla ===
+    void UpdateDirection() {
+        glm::vec3 dir;
+        dir.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+        dir.y = sin(glm::radians(pitch));
+        dir.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+        front = glm::normalize(dir);
+
+        // Sağ ve yukarı vektörleri güncelle
+        right = glm::normalize(glm::cross(front, glm::vec3(0.0f, 1.0f, 0.0f)));
+        up    = glm::normalize(glm::cross(right, front));
+    }
+
     glm::mat4 GetView() const {
-        glm::mat4 transform = GetGlobalTransform();
-        glm::vec3 camPos = glm::vec3(transform[3]);
-        glm::vec3 camForward = glm::normalize(glm::vec3(transform * glm::vec4(forward, 0.0f)));
-        glm::vec3 camUp = glm::normalize(glm::vec3(transform * glm::vec4(up, 0.0f)));
-        return glm::lookAt(camPos, camPos + camForward, camUp);
+        return glm::lookAt(position, position + front, up);
     }
 
     glm::mat4 GetProjection() const {
@@ -90,32 +103,11 @@ public:
         return GetProjection() * GetView();
     }
 
-    // =====================
-    // LookAt ekledik
-    // =====================
-    void LookAt(const glm::vec3& target) {
-    forward = glm::normalize(target - position);
-    glm::vec3 worldUp = glm::vec3(0,1,0);
-    glm::vec3 right = glm::normalize(glm::cross(forward, worldUp));
-    up = glm::normalize(glm::cross(right, forward));
-}
-
-    // Return direction vectors transformed by the node's rotation
-    glm::vec3 GetForward() const {
-        glm::mat4 transform = GetGlobalTransform();
-        return glm::normalize(glm::vec3(transform * glm::vec4(forward, 0.0f)));
-    }
-
-    glm::vec3 GetUp() const {
-        glm::mat4 transform = GetGlobalTransform();
-        return glm::normalize(glm::vec3(transform * glm::vec4(up, 0.0f)));
-    }
-
-    glm::vec3 GetRight() const {
-        return glm::normalize(glm::cross(GetForward(), GetUp()));
-    }
-
+    glm::vec3 GetForward() const { return front; }
+    glm::vec3 GetUp() const { return up; }
+    glm::vec3 GetRight() const { return right; }
 };
+
 
 class LightNode3D : public Node3D {
 public:

@@ -1,11 +1,13 @@
-
 #include "core/engine.h"
+#include "core/input.h"
 #include <iostream>
 
-Engine::Engine(int width, int height, const std::string& title , IApplication* app)
+#include "core/application.h" // IApplication interface tanımı burada
+
+Engine::Engine(int width, int height, const std::string& title, IApplication* app)
     : width(width), height(height), title(title), game(app) {
     if (!Init()) {
-        std::cerr << "Engine init failed!\n";
+        std::cerr << "[Engine] Initialization failed!\n";
         running = false;
     }
 }
@@ -16,104 +18,104 @@ Engine::~Engine() {
 
 bool Engine::Init() {
     if (!glfwInit()) {
-        std::cerr << "Failed to init GLFW\n";
+        std::cerr << "[Engine] Failed to init GLFW\n";
         return false;
     }
 
-    // ---- GLFW pencere ayarları ----
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 #ifdef __APPLE__
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // macOS zorunlu
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
-    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE); // 👈 pencereyi görünmez başlat
 
-    // ---- Pencere oluştur ----
+    // Gizli başlat (UI hazır olunca göster)
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+
     window = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
     if (!window) {
-        std::cerr << "Failed to create window\n";
+        std::cerr << "[Engine] Failed to create window\n";
         glfwTerminate();
         return false;
     }
 
-    // ---- OpenGL context'i aktif et ----
     glfwMakeContextCurrent(window);
-    glfwSwapInterval(1); // vsync açık
+    glfwSwapInterval(1); // vsync
 
-    // ---- GLAD yükle ----
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        std::cerr << "Failed to init GLAD\n";
+        std::cerr << "[Engine] Failed to initialize GLAD\n";
         return false;
     }
 
-    // ---- Framebuffer (retina desteğiyle) ----
     int fbWidth, fbHeight;
     glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
     glViewport(0, 0, fbWidth, fbHeight);
 
-    // ---- Viewport değişim callback ----
     glfwSetFramebufferSizeCallback(window, [](GLFWwindow*, int w, int h) {
         glViewport(0, 0, w, h);
     });
 
-    // ---- OpenGL ayarları ----
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // ---- Pencereyi göster ----
-    glfwShowWindow(window); // 👈 her şey hazır olunca göster
+    // Input sistemi bağla
+    Input::Init(window);
 
-    std::cout << "OpenGL version: " << glGetString(GL_VERSION) << std::endl;
-    std::cout << "Framebuffer size: " << fbWidth << "x" << fbHeight << std::endl;
+    glfwShowWindow(window);
 
+    std::cout << "✅ Engine initialized (OpenGL " << glGetString(GL_VERSION) << ")\n";
     running = true;
+    lastFrameTime = std::chrono::high_resolution_clock::now();
     return true;
 }
 
 void Engine::Run() {
     if (!game) {
-        std::cerr << "No application attached!\n";
+        std::cerr << "[Engine] No game attached!\n";
         return;
     }
+
     game->OnInit();
 
-    auto lastTime = std::chrono::high_resolution_clock::now();
-
     while (!glfwWindowShouldClose(window) && running) {
-        // Process window events first so input state (keyboard/mouse) is fresh
-        glfwPollEvents();
+        ProcessSystemEvents();
 
+        // Delta time hesapla
         auto now = std::chrono::high_resolution_clock::now();
-        float dt = std::chrono::duration<float>(now - lastTime).count();
-        lastTime = now;
-        ProcessInput();
+        float dt = std::chrono::duration<float>(now - lastFrameTime).count();
+        lastFrameTime = now;
+
+        BeginFrame(dt);
         game->OnUpdate(dt);
-
-
         game->OnRender();
-
-        glfwSwapBuffers(window);
+        EndFrame();
     }
 
     game->OnShutdown();
     delete game;
 }
 
-void Engine::ProcessInput() {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+void Engine::BeginFrame(float dt) {
+    Input::Update();
+
+    glClearColor(0.1f, 0.1f, 0.12f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void Engine::EndFrame() {
+    glfwSwapBuffers(window);
+}
+
+void Engine::ProcessSystemEvents() {
+    glfwPollEvents();
+    if (Input::IsKeyDown(GLFW_KEY_ESCAPE))
         running = false;
 }
 
-void Engine::Update() {
-    // game logic
-}
-
-void Engine::Render() {
-    // rendering
-}
-
 void Engine::Shutdown() {
-    glfwDestroyWindow(window);
+    if (window) {
+        glfwDestroyWindow(window);
+        window = nullptr;
+    }
     glfwTerminate();
 }

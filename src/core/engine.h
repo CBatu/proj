@@ -1,8 +1,11 @@
 #pragma once
+#include <string>
+#include <chrono>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <string>
-#include "game/game.h"
+#include "core/input.h"
+
+class IApplication;
 
 class Engine {
 public:
@@ -12,15 +15,21 @@ public:
     void Run();
 
 private:
-    GLFWwindow* window;
+    bool Init();
+    void Shutdown();
+
+    void BeginFrame(float dt);
+    void EndFrame();
+
+    void ProcessSystemEvents();
+
+private:
+    GLFWwindow* window = nullptr;
+    IApplication* game = nullptr;
+    bool running = false;
+
     int width, height;
     std::string title;
-    bool running = true;
-    IApplication* game = nullptr;
 
-    bool Init();
-    void ProcessInput();
-    void Update();
-    void Render();
-    void Shutdown();
+    std::chrono::high_resolution_clock::time_point lastFrameTime;
 };
