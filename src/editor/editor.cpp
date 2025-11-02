@@ -162,7 +162,7 @@ void Editor::OnRender() {
 
         if (auto mesh = dynamic_cast<MeshNode3D*>(selectedNode)) {
             ImGui::Separator();
-            ImGui::ColorEdit4("Color", &mesh->color.r);
+            ImGui::ColorEdit4("Color", &mesh->material->color.r);
         }
         if (auto light = dynamic_cast<LightNode3D*>(selectedNode)) {
             ImGui::Separator();

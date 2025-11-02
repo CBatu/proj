@@ -2,6 +2,7 @@
 #include "gfx/shader.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include "Node/Material.h"
 #include <vector>
 #include <glad/glad.h>
 
@@ -11,8 +12,9 @@ struct Color {
 
 struct DrawCall {
     glm::mat4 model;
-    Color color;
+    Material* material = nullptr; // nullptr ise sadece renk kullan
 };
+
 
 struct LightData {
     int type; // 0 = directional, 1 = point
@@ -27,7 +29,7 @@ class Renderer3D {
 public:
     bool Init();
     void Begin(const glm::mat4& viewProjMatrix, const glm::mat4& cameraPos);
-    void DrawCube(const glm::mat4& model, Color color);
+    void DrawCube(const glm::mat4& model,Material* material);
     void End();
     void Destroy();
     void AddLight(const LightData& light) {

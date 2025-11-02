@@ -1,6 +1,7 @@
 #pragma once
 #include "gfx/renderer.h"
 #include <glm/glm.hpp>
+#include "Node/Material.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include <vector>
 
@@ -49,13 +50,14 @@ public:
 
 class MeshNode3D : public Node3D {
 public:
-    Color color {1,1,1,1};
+    Material* material = nullptr;
 
     void Render(Renderer3D& renderer, const glm::mat4& viewProj) override {
-        renderer.DrawCube(GetGlobalTransform(), color);
+        renderer.DrawCube(GetGlobalTransform(), material);
         Node3D::Render(renderer, viewProj);
     }
 };
+
 
 class CameraNode3D : public Node3D {
 public:

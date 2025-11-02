@@ -1,5 +1,10 @@
 #include "gfx/renderer.h"
+#include <stb_image.h>
 #include <iostream>
+#define TINYOBJLOADER_IMPLEMENTATION // define this in only *one* .cc
+// Optional. define TINYOBJLOADER_USE_MAPBOX_EARCUT gives robust triangulation. Requires C++11
+//#define TINYOBJLOADER_USE_MAPBOX_EARCUT
+#include "tiny_obj_loader.h"
 
 bool Renderer3D::Init() {
     if (!shader.Load("shaders/basic.vert", "shaders/basic.frag")) {
@@ -7,56 +12,69 @@ bool Renderer3D::Init() {
         return false;
     }
     SetupCube();
+    // ensure sampler uses texture unit 0
+    shader.Use();
+    shader.SetInt("uDiffuseTex", 0);
+
     glEnable(GL_DEPTH_TEST);
     return true;
 }
 
 void Renderer3D::SetupCube() {
+    // Interleaved vertex data: position (3), texcoord (2)
     float cubeVertices[] = {
-        -0.5f, -0.5f, -0.5f,  
-         0.5f, -0.5f, -0.5f,  
-         0.5f,  0.5f, -0.5f,  
-         0.5f,  0.5f, -0.5f,  
-        -0.5f,  0.5f, -0.5f,  
-        -0.5f, -0.5f, -0.5f,  
+        // back face (z = -0.5)
+        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+         0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
 
-        -0.5f, -0.5f,  0.5f,  
-         0.5f, -0.5f,  0.5f,  
-         0.5f,  0.5f,  0.5f,  
-         0.5f,  0.5f,  0.5f,  
-        -0.5f,  0.5f,  0.5f,  
-        -0.5f, -0.5f,  0.5f,  
+        // front face (z = 0.5)
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
 
-        -0.5f,  0.5f,  0.5f,  
-        -0.5f,  0.5f, -0.5f,  
-        -0.5f, -0.5f, -0.5f,  
-        -0.5f, -0.5f, -0.5f,  
-        -0.5f, -0.5f,  0.5f,  
-        -0.5f,  0.5f,  0.5f,  
+        // left face (x = -0.5)
+        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+        -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
 
-         0.5f,  0.5f,  0.5f,  
-         0.5f,  0.5f, -0.5f,  
-         0.5f, -0.5f, -0.5f,  
-         0.5f, -0.5f, -0.5f,  
-         0.5f, -0.5f,  0.5f,  
-         0.5f,  0.5f,  0.5f,  
+        // right face (x = 0.5)
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
 
-        -0.5f, -0.5f, -0.5f,  
-         0.5f, -0.5f, -0.5f,  
-         0.5f, -0.5f,  0.5f,  
-         0.5f, -0.5f,  0.5f,  
-        -0.5f, -0.5f,  0.5f,  
-        -0.5f, -0.5f, -0.5f,  
+        // bottom face (y = -0.5)
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
 
-        -0.5f,  0.5f, -0.5f,  
-         0.5f,  0.5f, -0.5f,  
-         0.5f,  0.5f,  0.5f,  
-         0.5f,  0.5f,  0.5f,  
-        -0.5f,  0.5f,  0.5f,  
-        -0.5f,  0.5f, -0.5f
+        // top face (y = 0.5)
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
     };
-const size_t MAX_INSTANCES = 1024; // ihtiyaca göre arttır
 
+    const size_t MAX_INSTANCES = 1024; // ihtiyaca göre arttır
+
+    // generate VAO/VBOs
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &instanceVBO);
@@ -64,35 +82,38 @@ const size_t MAX_INSTANCES = 1024; // ihtiyaca göre arttır
 
     glBindVertexArray(VAO);
 
-    // --- static vertex positions ---
+    // vertex data
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), cubeVertices, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0); // layout(location = 0) aPos
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 
-    // --- instance matrices: allocate GPU storage once ---
+    // positions (location = 0)
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+
+    // texcoords (location = 6)
+    glEnableVertexAttribArray(6);
+    glVertexAttribPointer(6, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+
+    // instance matrices (locations 1,2,3,4)
     glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
     glBufferData(GL_ARRAY_BUFFER, MAX_INSTANCES * sizeof(glm::mat4), nullptr, GL_DYNAMIC_DRAW);
-
-    std::size_t vec4Size = sizeof(glm::vec4);
-    // mat4 -> 4 vec4 attribute (locations 1,2,3,4)
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < 4; i++) {
         glEnableVertexAttribArray(1 + i);
-        glVertexAttribPointer(1 + i, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(i * vec4Size));
+        glVertexAttribPointer(1 + i, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(i * sizeof(glm::vec4)));
         glVertexAttribDivisor(1 + i, 1);
     }
 
-    // --- instance colors: allocate ---
+    // instance colors (location = 5)
     glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
     glBufferData(GL_ARRAY_BUFFER, MAX_INSTANCES * sizeof(glm::vec4), nullptr, GL_DYNAMIC_DRAW);
-
-    glEnableVertexAttribArray(5); // layout(location = 5) aColor
+    glEnableVertexAttribArray(5);
     glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), (void*)0);
     glVertexAttribDivisor(5, 1);
 
-    // unbind for cleanliness
+    // cleanup
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
+
 }
 
 void Renderer3D::Begin(const glm::mat4& viewProjMatrix, const glm::mat4& cameraPos) {
@@ -127,8 +148,8 @@ void Renderer3D::UploadLights() {
 }
 
 
-void Renderer3D::DrawCube(const glm::mat4& model, Color color) {
-    drawCalls.push_back({ model, color });
+void Renderer3D::DrawCube(const glm::mat4& model, Material* mat) {
+    drawCalls.push_back({ model, mat });
 }
 
 void Renderer3D::FlushBatch() {
@@ -137,37 +158,50 @@ void Renderer3D::FlushBatch() {
     shader.Use();
     glBindVertexArray(VAO);
 
-    // CPU-side hazırlık
-    std::vector<glm::mat4> matrices(drawCalls.size());
-    std::vector<glm::vec4> colors(drawCalls.size());
+    // --- Batchleri ayır: texture’lı ve texturesiz ---
+    std::vector<glm::mat4> matricesTex, matricesNoTex;
+    std::vector<glm::vec4> colorsTex, colorsNoTex;
+    GLuint boundTexture = 0;
 
-    for (size_t i = 0; i < drawCalls.size(); ++i) {
-        matrices[i] = drawCalls[i].model;
-        colors[i] = glm::vec4(drawCalls[i].color.r, drawCalls[i].color.g, drawCalls[i].color.b, drawCalls[i].color.a);
+    for (auto& call : drawCalls) {
+        Material* mat = call.material;
+        if (mat && mat->HasTexture()) {
+            matricesTex.push_back(call.model);
+            colorsTex.push_back(glm::vec4(mat->color, 1.0f));
+            boundTexture = mat->diffuseTexture; // son kullanılan texture
+        } else {
+            matricesNoTex.push_back(call.model);
+            glm::vec3 color = mat ? mat->color : glm::vec3(1.0f);
+            colorsNoTex.push_back(glm::vec4(color, 1.0f));
+        }
     }
 
-    // === safety checks ===
-    if (!matrices.empty()) {
-        // bind the correct buffer BEFORE subdata
+    // === TEXTURE’LI OBJELER ===
+    if (!matricesTex.empty() && boundTexture != 0) {
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, boundTexture);
+        shader.SetInt("uUseTexture", 1);
+
         glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-        // If you might exceed MAX_INSTANCES you should reallocate:
-        // glBufferData(GL_ARRAY_BUFFER, newSize, nullptr, GL_DYNAMIC_DRAW);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, matrices.size() * sizeof(glm::mat4), matrices.data());
-    }
-
-    if (!colors.empty()) {
+        glBufferSubData(GL_ARRAY_BUFFER, 0, matricesTex.size() * sizeof(glm::mat4), matricesTex.data());
         glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, colors.size() * sizeof(glm::vec4), colors.data());
+        glBufferSubData(GL_ARRAY_BUFFER, 0, colorsTex.size() * sizeof(glm::vec4), colorsTex.data());
+
+        glDrawArraysInstanced(GL_TRIANGLES, 0, 36, (GLsizei)matricesTex.size());
     }
 
-    // ensure viewproj uniform
-    shader.SetMat4("uViewProj", viewProj);
+    // === SADECE RENKLİ OBJELER ===
+    if (!matricesNoTex.empty()) {
+        shader.SetInt("uUseTexture", 0);
 
-    // draw
-    GLsizei instanceCount = static_cast<GLsizei>(drawCalls.size());
-    glDrawArraysInstanced(GL_TRIANGLES, 0, 36, instanceCount);
+        glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, matricesNoTex.size() * sizeof(glm::mat4), matricesNoTex.data());
+        glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, colorsNoTex.size() * sizeof(glm::vec4), colorsNoTex.data());
 
-    // cleanup
+        glDrawArraysInstanced(GL_TRIANGLES, 0, 36, (GLsizei)matricesNoTex.size());
+    }
+
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 }

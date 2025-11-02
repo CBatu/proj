@@ -14,9 +14,11 @@ option(BUILD_SHARED_LIBS "Build libraries shared instead of static" OFF)
 file(COPY shaders DESTINATION ${CMAKE_BINARY_DIR})
 
 add_subdirectory(extern/glfw)
+add_subdirectory(extern/stb)
 add_subdirectory(glm)
 add_subdirectory(glad)
 add_subdirectory(imgui)
+add_subdirectory(extern/tinyobjloader)
 
 # Create executable
 add_executable(${PROJECT_NAME}
@@ -37,4 +39,4 @@ src/editor/editor.cpp
 # - glad
 # - glm
 # Link to them. GLFW target handles platform link flags (frameworks on macOS, libs on Windows).
-target_link_libraries(${PROJECT_NAME} PRIVATE glfw glad glm::glm imgui)
+target_link_libraries(${PROJECT_NAME} PRIVATE glfw glad glm::glm imgui stb tinyobjloader)

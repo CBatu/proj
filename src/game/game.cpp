@@ -23,8 +23,8 @@ void Game::OnInit() {
 
     // === Işık ===
     auto light = new LightNode3D();
-    light->position = { 2.0f, 4.0f, 2.0f };
-    light->type = LightNode3D::Type::Point;
+    light->position = { 3.0f, 4.0f, 4.0f };
+    light->type = LightNode3D::Type::Directional;
     light->color = { 1.0f, 1.0f, 1.0f };
     root->AddChild(light);
 
@@ -35,16 +35,22 @@ void Game::OnInit() {
     root->AddChild(camera);
 
     Input::SetCursorMode(CursorMode::Locked); // ESC ile çıkabilirsin
-
+    auto mat = new Material();
+    
+    mat->LoadTexture("../batu.png");
+    std::cout << "Texture loaded: " << mat->HasTexture() << std::endl;
     // === Küpler ===
     auto cube1 = new MeshNode3D();
     cube1->position = { -1.0f, 0.0f, 0.0f };
-    cube1->color = { 1, 0, 0, 1 };
+    cube1->material = mat;
     root->AddChild(cube1);
+
+    auto newMat = new Material();
+    newMat->color = {0.0f, 1.0f, 0.0f};
 
     auto cube2 = new MeshNode3D();
     cube2->position = { 1.0f, 0.0f, 0.0f };
-    cube2->color = { 0, 0, 1, 1 };
+    cube2->material = newMat;
     root->AddChild(cube2);
 }
 
